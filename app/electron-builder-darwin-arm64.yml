@@ -8,6 +8,11 @@ copyright: "© 2020-present Yunnan Liandi Technology Co., Ltd."
 artifactName: "siyuan-outliner-${version}-${os}-arm64.${ext}"
 extraMetadata:
   main: "electron/main.js"
+  # app.getName() drives Electron's single-instance lock and the userData dir
+  # (main.js appends "-Electron"). It must differ from the official app's
+  # "SiYuan", or this build silently quits at launch whenever official SiYuan
+  # is running.
+  name: "SiYuan-Outliner"
 directories:
   output: "build"
 files:

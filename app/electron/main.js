@@ -41,7 +41,9 @@ process.noAsar = true;
 const appDir = path.dirname(app.getAppPath());
 const isDevEnv = process.env.NODE_ENV === "development";
 const appVer = app.getVersion();
-const confDir = path.join(app.getPath("home"), ".config", "siyuan");
+// Fork: own config dir — the workspace list must not be shared with the
+// official SiYuan app installed on the same machine.
+const confDir = path.join(app.getPath("home"), ".config", "siyuan-outliner");
 const windowStatePath = path.join(confDir, "windowState.json");
 const appCrashLogPath = path.join(confDir, "app.crash.log");
 let bootWindow;
@@ -71,18 +73,8 @@ if (!app.requestSingleInstanceLock()) {
     return;
 }
 
-// 开发环境下 Windows 需显式传入 Electron 可执行文件路径和 main.js 路径，否则 siyuan:// 会被当作相对路径
-if (isDevEnv && process.defaultApp && process.argv.length >= 2) {
-    const mainScript = path.resolve(process.argv[1]);
-    if (process.platform === "win32") {
-        app.removeAsDefaultProtocolClient("siyuan", process.execPath, [mainScript]);
-        app.setAsDefaultProtocolClient("siyuan", process.execPath, [mainScript]);
-    } else {
-        app.setAsDefaultProtocolClient("siyuan");
-    }
-} else {
-    app.setAsDefaultProtocolClient("siyuan");
-}
+// Fork: do NOT register as the siyuan:// protocol handler — the official
+// SiYuan app on this machine keeps sole ownership of the URL scheme.
 
 app.commandLine.appendSwitch("disable-web-security");
 app.commandLine.appendSwitch("auto-detect", "false");
