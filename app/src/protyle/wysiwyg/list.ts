@@ -76,6 +76,65 @@ export const toggleTaskListItem = (protyle: IProtyle, taskItemElement: Element):
     updateTransaction(protyle, taskItemElement, html);
 };
 
+// Fork: Logseq-style task cycle — plain bullet → TODO → DOING → DONE → plain.
+// TODO/DONE ride the native task-list state; DOING is the native unchecked
+// state plus a custom-task="doing" attribute on the list item (the official
+// app degrades it to a plain unchecked task). Everything goes through one
+// updateTransaction — the kernel parses the custom-* attribute back into the
+// IAL from the block DOM, so there is no attr/transaction race. Ordered-list
+// items don't cycle.
+export const cycleTaskState = (protyle: IProtyle, liElement: HTMLElement): void => {
+    const subtype = liElement.getAttribute("data-subtype");
+    if (subtype === "o") {
+        return;
+    }
+    const actionElement = liElement.querySelector(".protyle-action");
+    const useElement = actionElement?.querySelector("use");
+    if (!actionElement || !useElement) {
+        return;
+    }
+    const html = liElement.outerHTML;
+    const commitDom = () => {
+        liElement.setAttribute("updated", dayjs().format("YYYYMMDDHHmmss"));
+        updateTransaction(protyle, liElement, html);
+    };
+    const doing = liElement.getAttribute("custom-task") === "doing";
+    if (subtype !== "t") {
+        // plain bullet → TODO
+        liElement.setAttribute("data-subtype", "t");
+        liElement.setAttribute("data-task", " ");
+        actionElement.classList.add("protyle-action--task");
+        useElement.setAttribute("xlink:href", "#iconUncheck");
+        commitDom();
+        return;
+    }
+    const marker = liElement.getAttribute("data-task");
+    const checked = marker !== null && marker !== " ";
+    if (!checked && !doing) {
+        // TODO → DOING
+        liElement.setAttribute("custom-task", "doing");
+        commitDom();
+        return;
+    }
+    if (!checked && doing) {
+        // DOING → DONE
+        liElement.removeAttribute("custom-task");
+        liElement.setAttribute("data-task", "X");
+        liElement.classList.add("protyle-task--done");
+        useElement.setAttribute("xlink:href", "#iconCheck");
+        commitDom();
+        return;
+    }
+    // DONE → plain bullet
+    liElement.removeAttribute("custom-task");
+    liElement.setAttribute("data-subtype", "u");
+    liElement.removeAttribute("data-task");
+    liElement.classList.remove("protyle-task--done");
+    actionElement.classList.remove("protyle-action--task");
+    useElement.setAttribute("xlink:href", "#iconDot");
+    commitDom();
+};
+
 export const genListItemElement = (listItemElement: Element, offset = 0, wbr = false, startIndex?: number) => {
     const element = document.createElement("template");
     const type = listItemElement.getAttribute("data-subtype");

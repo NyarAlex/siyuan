@@ -46,7 +46,7 @@ import {
     updateTransaction
 } from "./transaction";
 import {fontEvent} from "../toolbar/Font";
-import {addSubList, listIndent, listOutdent, toggleTaskListItem} from "./list";
+import {addSubList, cycleTaskState, listIndent, listOutdent} from "./list";
 import {newFileContentBySelect, rename, replaceFileName} from "../../editor/rename";
 import {cancelSB, insertEmptyBlock, jumpToParent} from "../../block/util";
 import {isLocalPath} from "../../util/pathName";
@@ -1713,11 +1713,14 @@ export const keydown = (protyle: IProtyle, editorElement: HTMLElement) => {
         }
 
         if (matchHotKey(window.siyuan.config.keymap.editor.list.checkToggle.custom, event)) {
-            const taskItemElement = hasClosestByAttribute(range.startContainer, "data-subtype", "t");
-            if (!taskItemElement) {
+            // Fork: Logseq-style task cycle on the current bullet —
+            // plain → TODO → DOING → DONE → plain (was: binary check toggle
+            // that only worked on existing task items).
+            const listItemElement = hasClosestByClassName(range.startContainer, "li");
+            if (!listItemElement) {
                 return;
             }
-            toggleTaskListItem(protyle, taskItemElement);
+            cycleTaskState(protyle, listItemElement as HTMLElement);
             event.preventDefault();
             event.stopPropagation();
             return;

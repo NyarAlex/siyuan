@@ -78,6 +78,7 @@ import {getBacklinkHeadingMore, loadBreadcrumb} from "./renderBacklink";
 import {removeSearchMark} from "../toolbar/util";
 import {activeBlur} from "../../mobile/util/keyboardToolbar";
 import {commonClick} from "./commonClick";
+import {openTaskHub} from "../taskHub";
 import {avClick, avContextmenu, updateAVName} from "../render/av/action";
 import {selectRow, stickyRow} from "../render/av/row";
 import {showColMenu} from "../render/av/col";
@@ -3410,7 +3411,11 @@ export class WYSIWYG {
                         zoomOut({protyle, id: actionId});
                     } else {
                         if (actionElement.classList.contains("protyle-action--task")) {
-                            if (!protyle.disabled) {
+                            if (event.altKey) {
+                                // Fork: Alt+click on any task checkbox opens the
+                                // workspace-wide task hub (DOING/TODO/DONE filter).
+                                openTaskHub(protyle.app);
+                            } else if (!protyle.disabled) {
                                 toggleTaskListItem(protyle, actionElement.parentElement);
                             }
                         } else if (window.siyuan.config.editor.listItemDotNumberClickFocus) {
