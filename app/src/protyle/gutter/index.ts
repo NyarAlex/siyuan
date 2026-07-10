@@ -10,6 +10,7 @@ import {getIconByType} from "../../editor/getIcon";
 import {enterBack, iframeMenu, tableMenu, videoMenu, zoomOut} from "../../menus/protyle";
 import {foldBlocksRecursively, setFold} from "../util/blockFold";
 import {MenuItem} from "../../menus/Menu";
+import {promoteListItem} from "../promoteToDoc";
 import {copySubMenu, openAttr, openFileAttr, openWechatNotify} from "../../menus/commonMenuItem";
 import {
     copyPlainText,
@@ -2273,6 +2274,18 @@ export class Gutter {
                     accelerator: window.siyuan.config.keymap.editor.general.attr.custom + "/" + updateHotkeyTip("⇧" + window.siyuan.languages.click),
                     click() {
                         openAttr(nodeElement, "bookmark", protyle);
+                    }
+                }).element);
+            }
+            if (type === "NodeListItem" && !protyle.disabled) {
+                // Fork: promote the bullet's subtree to a child doc of the
+                // inferred (or picked) parent, leaving a ref bullet behind.
+                window.siyuan.menus.menu.append(new MenuItem({
+                    id: "forkPromoteToDoc",
+                    icon: "iconMove",
+                    label: "升格为子文档",
+                    click: () => {
+                        promoteListItem(protyle, nodeElement as HTMLElement);
                     }
                 }).element);
             }
