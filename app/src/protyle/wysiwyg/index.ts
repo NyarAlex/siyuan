@@ -2956,13 +2956,15 @@ export class WYSIWYG {
             }
         });
         let mobileBlur = false;
+        // Fork: clicks in the right annotation gutter open the memo editor.
+        // Capture phase, so the editor's own click/selection handling (and the
+        // preventClick flag set by mousedown logic) can't swallow it.
+        this.element.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
+            annotationClick(event, protyle);
+        }, true);
         this.element.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
             if (this.preventClick) {
                 this.preventClick = false;
-                return;
-            }
-            // Fork: clicks in the right annotation gutter open the memo editor.
-            if (annotationClick(event, protyle)) {
                 return;
             }
             protyle.app.plugins.forEach(item => {
