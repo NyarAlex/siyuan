@@ -524,6 +524,8 @@ interface IProtyle {
     observer?: ResizeObserver,
     // Fork: right-margin annotation column overlay (wysiwyg/annotation.ts).
     forkAnnotation?: import("../protyle/wysiwyg/annotation").AnnotationColumn,
+    // Fork: child-docs footer (hierarchyPanel.ts).
+    forkHierarchy?: import("../protyle/hierarchyPanel").HierarchyPanel,
     app: import("../index").App,
     id: string,
     query?: {

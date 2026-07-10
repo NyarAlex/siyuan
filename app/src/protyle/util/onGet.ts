@@ -351,6 +351,8 @@ const setHTML = (options: {
         }
 
     }
+    // Fork: refresh the child-docs footer on every static doc load.
+    protyle.forkHierarchy?.render();
     protyle.app.plugins.forEach(item => {
         item.eventBus.emit("loaded-protyle-static", {protyle});
     });

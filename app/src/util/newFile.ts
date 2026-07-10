@@ -312,7 +312,13 @@ export const newFileByRefHint = (
     onCreated?: (id: string, title: string) => void,
     presetId?: string,
 ) => {
-    const requestName = replaceFileName(name.trim());
+    // Fork Hierarchy: [[a/b/c]] nests — segments before the last extend the
+    // parent path (the kernel's createDocsByHPath creates missing parents),
+    // the last segment is the doc title. Sanitizing per segment keeps stock
+    // replaceFileName from folding "/" into "／".
+    const segments = name.trim().split("/").map(seg => replaceFileName(seg.trim())).filter(Boolean);
+    const requestName = segments.length > 0 ? segments[segments.length - 1] : replaceFileName(name.trim());
+    const parentSegments = segments.slice(0, -1);
     fetchPost("/api/filetree/getRefCreateSavePath", {notebook: protyle.notebookId}, (savePathResponse) => {
         const templatePath = savePathResponse.data.path as string;
         const targetNotebookId = savePathResponse.data.box as string;
@@ -327,6 +333,12 @@ export const newFileByRefHint = (
                 currentPath: protyle.path,
             });
             if (target.kind === "hPath") {
+                if (parentSegments.length > 0 && target.title) {
+                    // Splice the intermediate [[a/b/…]] segments in between the
+                    // resolved save path and the title.
+                    target.hPath = target.hPath.slice(0, target.hPath.length - target.title.length) +
+                        parentSegments.join("/") + "/" + target.title;
+                }
                 createRefDocByHPath(protyle, target, onCreated, presetId);
             } else {
                 createRefDocAsSubDoc(target, onCreated, presetId);

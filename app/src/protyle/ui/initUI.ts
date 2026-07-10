@@ -11,6 +11,7 @@ import {genUUID} from "../../util/genID";
 import {getContenteditableElement, getLastBlock} from "../wysiwyg/getBlock";
 import {genEmptyElement, genHeadingElement, insertEmptyBlock} from "../../block/util";
 import {AnnotationColumn} from "../wysiwyg/annotation";
+import {HierarchyPanel} from "../hierarchyPanel";
 import {transaction} from "../wysiwyg/transaction";
 import {focusByRange} from "../util/selection";
 /// #if !MOBILE
@@ -47,6 +48,8 @@ export const initUI = (protyle: IProtyle) => {
     if (!isMobile()) {
         // Fork: right-margin annotation column overlay (see wysiwyg/annotation.ts).
         protyle.forkAnnotation = new AnnotationColumn(protyle);
+        // Fork: child-docs footer (see hierarchyPanel.ts); rendered on doc load.
+        protyle.forkHierarchy = new HierarchyPanel(protyle);
     }
     protyle.element.appendChild(protyle.preview.element);
     if (protyle.upload) {
