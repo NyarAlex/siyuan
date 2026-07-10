@@ -1,9 +1,11 @@
-productName: "SiYuan"
-appId: "org.b3log.siyuan"
+# Renamed from "SiYuan" so this fork installs/runs alongside the official app
+# (separate bundle id, app name, and ~/Library/Application Support dir).
+productName: "SiYuan-Outliner"
+appId: "org.b3log.siyuan-outliner"
 asar: false
 compression: "normal"
 copyright: "© 2020-present Yunnan Liandi Technology Co., Ltd."
-artifactName: "siyuan-${version}-${os}-arm64.${ext}"
+artifactName: "siyuan-outliner-${version}-${os}-arm64.${ext}"
 extraMetadata:
   main: "electron/main.js"
 directories:
@@ -13,25 +15,21 @@ files:
 afterPack: "./scripts/afterPack.js"
 
 mac:
-  identity: "Yunnan Liandi Technology Co., Ltd."
-  provisioningProfile: "../../SiYuan.provisionprofile"
+  # Local unsigned build: no signing identity / provisioning profile / MAS
+  # entitlements on this machine (identity null = ad-hoc signature).
+  identity: null
   icon: "src/assets/icon.icns"
   gatekeeperAssess: false
-  hardenedRuntime: true
-  entitlements: "../../entitlements.mas.plist"
   extendInfo:
     - NSMicrophoneUsageDescription: "This app requires microphone access to record audio."
-  entitlementsInherit: "../../entitlements.mas.plist"
   minimumSystemVersion: "12.0.0"
-  protocols:
-    - name: "SiYuan"
-      schemes:
-        - "siyuan"
+  # No siyuan:// protocol registration — the official app on this machine keeps
+  # sole ownership of the URL scheme.
   extraResources:
     - from: "kernel-darwin-arm64"
       to: "kernel"
   target:
-    - target: "dmg"
+    - target: "dir"
       arch: "arm64"
 
 extraResources:
