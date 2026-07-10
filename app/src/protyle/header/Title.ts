@@ -21,7 +21,7 @@ import {getDocDisplayName} from "../../util/pathName";
 import {getContenteditableElement, getNoContainerElement} from "../wysiwyg/getBlock";
 import {commonHotkey} from "../wysiwyg/commonHotkey";
 import {nbsp2space} from "../util/normalizeText";
-import {genEmptyElement} from "../../block/util";
+import {genEmptyElement, insertEmptyBlock} from "../../block/util";
 import {transaction} from "../wysiwyg/transaction";
 import {hideTooltip} from "../../dialog/tooltip";
 import {commonClick} from "../wysiwyg/commonClick";
@@ -154,10 +154,23 @@ export class Title {
                 } else if (event.key === "Enter") {
                     const firstElement = protyle.wysiwyg.element.firstElementChild;
                     const editElement = getContenteditableElement(firstElement);
+                    const outlinerFirstItem = (protyle.wysiwyg.element.getAttribute(Constants.CUSTOM_OUTLINER) === "true" &&
+                        firstElement.classList.contains("list")) ? firstElement.querySelector(":scope > .li") : null;
                     if (editElement && editElement.textContent === "" && editElement.getAttribute("placeholder") ||
                         firstElement.classList.contains("li")) {
                         // 配合提示文本使用，避免提示文本挤压到第二个块中
                         focusBlock(firstElement, protyle.wysiwyg.element);
+                    } else if (outlinerFirstItem) {
+                        // Fork outliner: Enter from the title goes into the outline —
+                        // focus the first bullet if it's empty, otherwise prepend a new
+                        // bullet; never insert a top-level paragraph above the list.
+                        const firstItemEdit = getContenteditableElement(outlinerFirstItem);
+                        if (firstItemEdit && firstItemEdit.textContent.trim() === "" &&
+                            outlinerFirstItem.childElementCount === 3) {
+                            focusBlock(outlinerFirstItem, protyle.wysiwyg.element);
+                        } else {
+                            insertEmptyBlock(protyle, "beforebegin", outlinerFirstItem.getAttribute("data-node-id"));
+                        }
                     } else {
                         const newId = Lute.NewNodeID();
                         const newElement = genEmptyElement(false, true, newId);

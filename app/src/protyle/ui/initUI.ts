@@ -9,7 +9,7 @@ import {lineNumberRender} from "../render/highlightRender";
 import {hideMessage, showMessage} from "../../dialog/message";
 import {genUUID} from "../../util/genID";
 import {getContenteditableElement, getLastBlock} from "../wysiwyg/getBlock";
-import {genEmptyElement, genHeadingElement} from "../../block/util";
+import {genEmptyElement, genHeadingElement, insertEmptyBlock} from "../../block/util";
 import {transaction} from "../wysiwyg/transaction";
 import {focusByRange} from "../util/selection";
 /// #if !MOBILE
@@ -146,6 +146,25 @@ export const initUI = (protyle: IProtyle) => {
         const lastRect = lastElement.getBoundingClientRect();
         const range = document.createRange();
         if (event.y > lastRect.bottom) {
+            // Fork outliner: clicking below the outline appends a bullet to the
+            // last top-level list (or focuses its trailing empty bullet) — never
+            // a top-level paragraph.
+            if (protyle.wysiwyg.element.getAttribute(Constants.CUSTOM_OUTLINER) === "true" &&
+                lastElement.classList.contains("list") && !protyle.options.click.preventInsetEmptyBlock) {
+                const lastItem = lastElement.lastElementChild?.previousElementSibling;
+                if (lastItem && lastItem.classList.contains("li")) {
+                    const lastItemEdit = getContenteditableElement(getLastBlock(lastItem));
+                    if (lastItemEdit && lastItemEdit.textContent.trim() === "" && lastItem.childElementCount === 3) {
+                        range.selectNodeContents(lastItemEdit);
+                        range.collapse(false);
+                        focusByRange(range);
+                        protyle.toolbar.range = range;
+                    } else {
+                        insertEmptyBlock(protyle, "afterend", lastItem.getAttribute("data-node-id"));
+                    }
+                    return;
+                }
+            }
             const lastEditElement = getContenteditableElement(getLastBlock(lastElement));
             if (!protyle.options.click.preventInsetEmptyBlock && (
                 !lastEditElement ||
