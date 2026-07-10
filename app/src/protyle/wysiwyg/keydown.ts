@@ -65,6 +65,7 @@ import * as dayjs from "dayjs";
 import {highlightRender} from "../render/highlightRender";
 import {countBlockWord} from "../../layout/status";
 import {moveToDown, moveToUp} from "./move";
+import {forkVimKeydown} from "./forkVim";
 import {beforePaste, pasteAsPlainText} from "../util/paste";
 import {preventScroll} from "../scroll/preventScroll";
 import {getRefCreateSavePath, newFileBySelect} from "../../util/newFile";
@@ -140,6 +141,13 @@ export const keydown = (protyle: IProtyle, editorElement: HTMLElement) => {
             return;
         }
         if (avKeydown(event, nodeElement, protyle)) {
+            return;
+        }
+
+        // Fork: vim-style Normal mode key table (docs/fork/vim-mode.md) —
+        // active only while a block is selected; supersedes the native
+        // selected-state a/b shortcuts below (o/O now insert, i/a edit).
+        if (forkVimKeydown(event, protyle)) {
             return;
         }
 
