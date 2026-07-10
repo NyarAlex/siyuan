@@ -66,3 +66,44 @@
     display: none;
   }
 }
+
+// Fork: Tine-style right-margin annotation column. The block's memo attribute
+// (mirrored onto [data-node-id] by lute) renders as an ::after in the right
+// gutter that initUI reserves; protyle-wysiwyg--annocol is toggled in
+// setPadding when the gutter actually fits. Interaction lives in
+// wysiwyg/annotation.ts.
+.protyle-wysiwyg--annocol {
+  [data-node-id].p,
+  [data-node-id][data-type="NodeHeading"] {
+    &::after {
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 4px;
+      width: 200px;
+      font-size: 12px;
+      font-weight: normal;
+      line-height: 18px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      cursor: text;
+      user-select: none;
+    }
+  }
+
+  [data-node-id].p[memo]:not([memo=""])::after,
+  [data-node-id][data-type="NodeHeading"][memo]:not([memo=""])::after {
+    content: attr(memo);
+    color: var(--b3-theme-on-surface);
+  }
+
+  // Hovered blocks without an annotation show a faint placeholder that doubles
+  // as the click target for creating one.
+  [data-node-id].p:not([memo]):hover::after,
+  [data-node-id].p[memo=""]:hover::after,
+  [data-node-id][data-type="NodeHeading"]:not([memo]):hover::after,
+  [data-node-id][data-type="NodeHeading"][memo=""]:hover::after {
+    content: "#\6807\6ce8"; // #标注
+    color: var(--b3-theme-on-surface-light);
+    opacity: .6;
+  }
+}

@@ -83,6 +83,8 @@ export abstract class Constants {
     public static readonly SIZE_UNDO = 64;
     public static readonly SIZE_TITLE = 512;
     public static readonly SIZE_EDITOR_WIDTH = 760;
+    // Fork: right gutter reserved for the annotation column (200px column + gap).
+    public static readonly SIZE_ANNOTATION_COL = 232;
     public static readonly SIZE_ZOOM = [
         {
             zoom: 0.67,

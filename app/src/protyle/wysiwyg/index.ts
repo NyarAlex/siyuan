@@ -78,6 +78,7 @@ import {getBacklinkHeadingMore, loadBreadcrumb} from "./renderBacklink";
 import {removeSearchMark} from "../toolbar/util";
 import {activeBlur} from "../../mobile/util/keyboardToolbar";
 import {commonClick} from "./commonClick";
+import {annotationClick} from "./annotation";
 import {avClick, avContextmenu, updateAVName} from "../render/av/action";
 import {selectRow, stickyRow} from "../render/av/row";
 import {showColMenu} from "../render/av/col";
@@ -2958,6 +2959,10 @@ export class WYSIWYG {
         this.element.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
             if (this.preventClick) {
                 this.preventClick = false;
+                return;
+            }
+            // Fork: clicks in the right annotation gutter open the memo editor.
+            if (annotationClick(event, protyle)) {
                 return;
             }
             protyle.app.plugins.forEach(item => {

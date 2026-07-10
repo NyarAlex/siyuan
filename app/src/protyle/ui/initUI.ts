@@ -318,6 +318,10 @@ export const setPadding = (protyle: IProtyle) => {
         // pc 端 文档名 attr 过长和添加标签等按钮重合
         protyle.title.element.style.margin = `16px ${paddingRight}px 0 ${paddingLeft}px`;
     }
+    // Fork: the annotation column renders only when the right margin actually
+    // reserves room for it.
+    protyle.wysiwyg.element.classList.toggle("protyle-wysiwyg--annocol",
+        paddingRight >= Constants.SIZE_ANNOTATION_COL);
 
     // https://github.com/siyuan-note/siyuan/issues/15021
     protyle.element.style.setProperty("--b3-width-protyle", protyle.element.clientWidth + "px");
@@ -355,6 +359,14 @@ export const getPadding = (protyle: IProtyle) => {
         } else if (protyle.element.clientWidth > Constants.SIZE_EDITOR_WIDTH) {
             left = 96;
             right = 96;
+        }
+        // Fork: annotation column — when the right margin can't host the gutter,
+        // rebalance the two margins (content keeps its width and shifts left,
+        // Tine-style). Narrow editors keep stock margins and the column hides
+        // (see the protyle-wysiwyg--annocol toggle in setPadding).
+        if (right < Constants.SIZE_ANNOTATION_COL && left + right >= Constants.SIZE_ANNOTATION_COL + 24) {
+            left = left + right - Constants.SIZE_ANNOTATION_COL;
+            right = Constants.SIZE_ANNOTATION_COL;
         }
     }
     return {
