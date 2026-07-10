@@ -1,8 +1,8 @@
 import {Dialog} from "../dialog";
-import {fetchPost} from "../util/fetch";
+import {fetchPost, fetchSyncPost} from "../util/fetch";
 import {movePathTo} from "../util/pathName";
 import {showMessage} from "../dialog/message";
-import {transaction} from "./wysiwyg/transaction";
+import {Constants} from "../constants";
 import {getContenteditableElement} from "./wysiwyg/getBlock";
 import {escapeAnnotation} from "./annotationHub";
 
@@ -30,9 +30,11 @@ const inferTargetRef = (liElement: HTMLElement): string | null => {
 };
 
 /** Leave a ref bullet after the source li, then move the subtree kernel-side.
- *  Ordering is safe: li2Doc starts with FlushTxQueue(), so the queued insert
- *  transaction lands before the subtree is unlinked. */
-const doPromote = (protyle: IProtyle, liElement: HTMLElement, notebook: string, targetPath: string) => {
+ *  The insert must be AWAITED before li2Doc fires: the editor's transaction()
+ *  helper debounces, so a queued insert could reach the kernel after li2Doc
+ *  has already unlinked its anchor block (未找到 ID 错误). Post the transaction
+ *  synchronously instead. */
+const doPromote = async (protyle: IProtyle, liElement: HTMLElement, notebook: string, targetPath: string) => {
     const liID = liElement.getAttribute("data-node-id");
     const text = getContenteditableElement(liElement)?.textContent.trim() || "未命名";
     const refLiID = Lute.NewNodeID();
@@ -44,15 +46,22 @@ const doPromote = (protyle: IProtyle, liElement: HTMLElement, notebook: string, 
         : '<div class="protyle-action" draggable="true"><svg><use xlink:href="#iconDot"></use></svg></div>';
     const html = `<div data-marker="${marker}" data-subtype="${subtype}" data-node-id="${refLiID}" data-type="NodeListItem" class="li">${actionHTML}<div data-node-id="${refPID}" data-type="NodeParagraph" class="p"><div contenteditable="true" spellcheck="false"><span data-type="block-ref" data-id="${liID}" data-subtype="d">${escapeAnnotation(text)}</span></div><div class="protyle-attr" contenteditable="false"></div></div><div class="protyle-attr" contenteditable="false"></div></div>`;
     liElement.insertAdjacentHTML("afterend", html);
-    transaction(protyle, [{
-        action: "insert",
-        data: html,
-        id: refLiID,
-        previousID: liID,
-    }], [{
-        action: "delete",
-        id: refLiID,
-    }]);
+    await fetchSyncPost("/api/transactions", {
+        session: protyle.id,
+        app: Constants.SIYUAN_APPID,
+        transactions: [{
+            doOperations: [{
+                action: "insert",
+                data: html,
+                id: refLiID,
+                previousID: liID,
+            }],
+            undoOperations: [{
+                action: "delete",
+                id: refLiID,
+            }],
+        }],
+    });
     fetchPost("/api/filetree/li2Doc", {
         srcListItemID: liID,
         targetNoteBook: notebook,
