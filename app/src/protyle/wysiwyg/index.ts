@@ -78,7 +78,6 @@ import {getBacklinkHeadingMore, loadBreadcrumb} from "./renderBacklink";
 import {removeSearchMark} from "../toolbar/util";
 import {activeBlur} from "../../mobile/util/keyboardToolbar";
 import {commonClick} from "./commonClick";
-import {annotationClick} from "./annotation";
 import {avClick, avContextmenu, updateAVName} from "../render/av/action";
 import {selectRow, stickyRow} from "../render/av/row";
 import {showColMenu} from "../render/av/col";
@@ -2956,12 +2955,6 @@ export class WYSIWYG {
             }
         });
         let mobileBlur = false;
-        // Fork: clicks in the right annotation gutter open the memo editor.
-        // Capture phase, so the editor's own click/selection handling (and the
-        // preventClick flag set by mousedown logic) can't swallow it.
-        this.element.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
-            annotationClick(event, protyle);
-        }, true);
         this.element.addEventListener("click", (event: MouseEvent & { target: HTMLElement }) => {
             if (this.preventClick) {
                 this.preventClick = false;

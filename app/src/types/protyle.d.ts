@@ -522,6 +522,8 @@ interface IProtyle {
     getInstance: () => import("../protyle").Protyle,
     observerLoad?: ResizeObserver,
     observer?: ResizeObserver,
+    // Fork: right-margin annotation column overlay (wysiwyg/annotation.ts).
+    forkAnnotation?: import("../protyle/wysiwyg/annotation").AnnotationColumn,
     app: import("../index").App,
     id: string,
     query?: {

@@ -14,6 +14,7 @@ export const destroy = (protyle: IProtyle) => {
     }
     protyle.observer?.disconnect();
     protyle.observerLoad?.disconnect();
+    protyle.forkAnnotation?.destroy();
     protyle.element.classList.remove("protyle");
     protyle.element.removeAttribute("style");
     if (protyle.wysiwyg) {

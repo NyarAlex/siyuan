@@ -1,39 +1,112 @@
 import {fetchPost} from "../../util/fetch";
+import {openAnnotationHub, renderMemoHTML} from "../annotationHub";
 
 // Fork: Tine-style right-margin annotation column.
 //
-// Display is pure CSS: lute already mirrors every block's `memo` IAL attribute
-// onto its [data-node-id] element, and _attr.scss renders it in the reserved
-// right gutter via ::after (see protyle-wysiwyg--annocol). This module only
-// handles interaction: a click in the gutter zone of a block opens a small
-// textarea overlay whose value is written back to the block's memo attribute —
-// the kernel then broadcasts updateAttrs, which refreshes the DOM (and thus
-// the CSS column) everywhere, including other windows.
+// A real-DOM overlay (one cell per paragraph/heading block) anchored inside
+// .protyle-content, so @tags inside annotations are clickable — a CSS
+// pseudo-element can't host sub-elements. The memo attribute that lute mirrors
+// onto every [data-node-id] element remains the single source of truth; the
+// overlay is rebuilt from the DOM whenever it changes (MutationObserver on
+// memo/fold + childList, ResizeObserver for layout/padding changes). Cells are
+// display-only chrome: clicking a @tag opens the aggregation hub, clicking
+// anywhere else on a cell opens the inline editor below.
+export class AnnotationColumn {
+    private element: HTMLElement;
+    private protyle: IProtyle;
+    private mutationObserver: MutationObserver;
+    private resizeObserver: ResizeObserver;
+    private pending = false;
 
-const BLOCK_SELECTOR = '[data-node-id].p, [data-node-id][data-type="NodeHeading"]';
+    constructor(protyle: IProtyle) {
+        this.protyle = protyle;
+        this.element = document.createElement("div");
+        this.element.className = "fork-annotations";
+        protyle.contentElement.append(this.element);
+        this.element.addEventListener("click", (event: MouseEvent) => {
+            this.click(event);
+        });
+        this.mutationObserver = new MutationObserver(() => {
+            this.schedule();
+        });
+        this.mutationObserver.observe(protyle.wysiwyg.element, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["memo", "fold"],
+        });
+        this.resizeObserver = new ResizeObserver(() => {
+            this.schedule();
+        });
+        this.resizeObserver.observe(protyle.wysiwyg.element);
+        this.schedule();
+    }
 
-export const annotationClick = (event: MouseEvent & { target: HTMLElement }, protyle: IProtyle): boolean => {
-    if (protyle.disabled ||
-        !protyle.wysiwyg.element.classList.contains("protyle-wysiwyg--annocol")) {
-        return false;
+    public destroy() {
+        this.mutationObserver.disconnect();
+        this.resizeObserver.disconnect();
+        this.element.remove();
     }
-    if (!(event.target instanceof Element)) {
-        return false;
+
+    private schedule() {
+        if (this.pending) {
+            return;
+        }
+        this.pending = true;
+        requestAnimationFrame(() => {
+            this.pending = false;
+            this.render();
+        });
     }
-    const blockElement = event.target.closest(BLOCK_SELECTOR) as HTMLElement;
-    if (!blockElement || !protyle.wysiwyg.element.contains(blockElement)) {
-        return false;
+
+    private render() {
+        const wysiwyg = this.protyle.wysiwyg.element;
+        if (!wysiwyg.isConnected || !wysiwyg.classList.contains("protyle-wysiwyg--annocol")) {
+            this.element.innerHTML = "";
+            return;
+        }
+        const overlayRect = this.element.getBoundingClientRect();
+        let html = "";
+        wysiwyg.querySelectorAll('[data-node-id].p, [data-node-id][data-type="NodeHeading"]').forEach((block: HTMLElement) => {
+            if (block.closest(".protyle-wysiwyg__embed")) {
+                return; // embed previews are read-only mirrors of other blocks
+            }
+            const rect = block.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) {
+                return; // folded / hidden
+            }
+            const memo = block.getAttribute("memo") || "";
+            const top = Math.round(rect.top - overlayRect.top) + 2;
+            const left = Math.round(rect.right - overlayRect.left) + 12;
+            html += `<div class="fork-annotations__cell${memo ? "" : " fork-annotations__cell--empty"}" ` +
+                `data-node-id="${block.getAttribute("data-node-id")}" style="top:${top}px;left:${left}px">` +
+                (memo ? renderMemoHTML(memo) : "@标注") +
+                "</div>";
+        });
+        this.element.innerHTML = html;
     }
-    // A click on the ::after gutter text targets the block element itself but
-    // lands beyond its right edge; clicks inside the content column are not ours.
-    if (event.clientX < blockElement.getBoundingClientRect().right + 4) {
-        return false;
+
+    private click(event: MouseEvent) {
+        const target = event.target as HTMLElement;
+        const tagElement = target.closest(".fork-annotations__tag");
+        if (tagElement) {
+            event.preventDefault();
+            event.stopPropagation();
+            openAnnotationHub(this.protyle.app, tagElement.textContent);
+            return;
+        }
+        const cell = target.closest(".fork-annotations__cell") as HTMLElement;
+        if (cell && !this.protyle.disabled) {
+            event.preventDefault();
+            event.stopPropagation();
+            const block = this.protyle.wysiwyg.element.querySelector(
+                `[data-node-id="${cell.getAttribute("data-node-id")}"]`) as HTMLElement;
+            if (block) {
+                openAnnotationEditor(this.protyle, block);
+            }
+        }
     }
-    openAnnotationEditor(protyle, blockElement);
-    event.preventDefault();
-    event.stopPropagation();
-    return true;
-};
+}
 
 export const openAnnotationEditor = (protyle: IProtyle, blockElement: HTMLElement) => {
     document.querySelector(".fork-annotation__input")?.remove();
@@ -41,7 +114,7 @@ export const openAnnotationEditor = (protyle: IProtyle, blockElement: HTMLElemen
     const blockRect = blockElement.getBoundingClientRect();
     const textarea = document.createElement("textarea");
     textarea.className = "fork-annotation__input b3-text-field";
-    textarea.setAttribute("placeholder", "#标注");
+    textarea.setAttribute("placeholder", "@标注");
     textarea.value = blockElement.getAttribute("memo") || "";
     // Fixed positioning in viewport coordinates, appended to <body>: immune to
     // which ancestor scrolls or is position:relative (absolute positioning

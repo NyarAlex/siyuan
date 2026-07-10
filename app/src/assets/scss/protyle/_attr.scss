@@ -67,52 +67,62 @@
   }
 }
 
-// Fork: Tine-style right-margin annotation column. The block's memo attribute
-// (mirrored onto [data-node-id] by lute) renders as an ::after in the right
-// gutter that initUI reserves; protyle-wysiwyg--annocol is toggled in
-// setPadding when the gutter actually fits. Interaction lives in
-// wysiwyg/annotation.ts.
-.protyle-wysiwyg--annocol {
-  [data-node-id].p,
-  [data-node-id][data-type="NodeHeading"] {
-    &::after {
-      position: absolute;
-      left: calc(100% + 12px);
-      top: 4px;
-      width: 200px;
-      font-size: 12px;
-      font-weight: normal;
-      line-height: 18px;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      cursor: text;
-      user-select: none;
+// Fork: Tine-style right-margin annotation column — a real-DOM overlay (so
+// @tags inside annotations are clickable), backed by each block's memo
+// attribute. Cells are positioned by wysiwyg/annotation.ts; the
+// protyle-wysiwyg--annocol class (toggled in setPadding) gates rendering.
+.protyle-content {
+  position: relative;
+}
+
+.fork-annotations {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 2;
+
+  &__cell {
+    position: absolute;
+    pointer-events: auto;
+    width: 200px;
+    max-height: 90px;
+    overflow: hidden;
+    font-size: 12px;
+    line-height: 18px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--b3-theme-on-surface);
+    cursor: text;
+    user-select: none;
+
+    &--empty {
+      opacity: .22;
+      color: var(--b3-theme-on-surface-light);
+
+      &:hover {
+        opacity: .65;
+      }
     }
   }
 
-  [data-node-id].p[memo]:not([memo=""])::after,
-  [data-node-id][data-type="NodeHeading"][memo]:not([memo=""])::after {
-    content: attr(memo);
-    color: var(--b3-theme-on-surface);
-  }
+  &__tag {
+    color: var(--b3-theme-primary);
+    background: var(--b3-theme-primary-lightest);
+    border-radius: var(--b3-border-radius);
+    padding: 0 4px;
+    margin: 0 1px;
+    cursor: pointer;
 
-  // Blocks without an annotation show a persistent faint placeholder that
-  // doubles as the click target for creating one. It must NOT be hover-only:
-  // the pointer leaves the block's hit box on its way to the gutter, so a
-  // hover-gated pseudo-element vanishes before it can be clicked.
-  [data-node-id].p:not([memo])::after,
-  [data-node-id].p[memo=""]::after,
-  [data-node-id][data-type="NodeHeading"]:not([memo])::after,
-  [data-node-id][data-type="NodeHeading"][memo=""]::after {
-    content: "#\6807\6ce8"; // #标注
-    color: var(--b3-theme-on-surface-light);
-    opacity: .22;
+    &:hover {
+      text-decoration: underline;
+    }
   }
+}
 
-  [data-node-id].p:not([memo]):hover::after,
-  [data-node-id].p[memo=""]:hover::after,
-  [data-node-id][data-type="NodeHeading"]:not([memo]):hover::after,
-  [data-node-id][data-type="NodeHeading"][memo=""]:hover::after {
-    opacity: .55;
-  }
+.fork-hub__result {
+  cursor: pointer;
 }
