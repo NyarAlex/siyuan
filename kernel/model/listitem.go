@@ -94,9 +94,15 @@ func ListItem2Doc(srcListItemID, targetBoxID, targetPath, previousPath string, t
 		}
 		children = append(children, c)
 	}
+	// Fork: the bullet's own first line became the doc title (GetContainerText
+	// reads exactly that leaf) — drop it from the body so it isn't duplicated
+	// above the children.
+	if 0 < len(children) && ast.NodeParagraph == children[0].Type {
+		children = children[1:]
+	}
 	if 1 > len(children) {
-		newNode := treenode.NewParagraph("")
-		children = append(children, newNode)
+		// Fork: an empty promoted doc bootstraps as an outliner, same as createDoc.
+		children = append(children, newOutlinerBody())
 	}
 
 	luteEngine := util.NewLute()
@@ -113,6 +119,9 @@ func ListItem2Doc(srcListItemID, targetBoxID, targetPath, previousPath string, t
 	listItemNode.RemoveIALAttr("fold")
 	listItemNode.RemoveIALAttr(DocHiddenAttr)
 	newTree.Root.KramdownIAL = listItemNode.KramdownIAL
+	// Fork: promoted docs are pure outliners like every other created doc
+	// (li2Doc builds the tree directly and bypasses createDoc's stamp).
+	newTree.Root.SetIALAttr(DocOutlinerAttr, "true")
 	srcLiParent := listItemNode.Parent
 	listItemNode.Unlink()
 	if nil != srcLiParent && nil == srcLiParent.FirstChild {
