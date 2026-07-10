@@ -48,9 +48,13 @@ const doPromote = async (protyle: IProtyle, liElement: HTMLElement, notebook: st
         : '<div class="protyle-action" draggable="true"><svg><use xlink:href="#iconDot"></use></svg></div>';
     const html = `<div data-marker="${marker}" data-subtype="${subtype}" data-node-id="${refLiID}" data-type="NodeListItem" class="li">${actionHTML}<div data-node-id="${refPID}" data-type="NodeParagraph" class="p"><div contenteditable="true" spellcheck="false"><span data-type="block-ref" data-id="${liID}" data-subtype="d">${escapeAnnotation(text)}</span></div><div class="protyle-attr" contenteditable="false"></div></div><div class="protyle-attr" contenteditable="false"></div></div>`;
     liElement.insertAdjacentHTML("afterend", html);
-    await fetchSyncPost("/api/transactions", {
+    const txResponse = await fetchSyncPost("/api/transactions", {
         session: protyle.id,
         app: Constants.SIYUAN_APPID,
+        // Required by the kernel's arg binding — fetchPost injects this for
+        // /api/transactions automatically, fetchSyncPost does not; without it
+        // the insert is silently dropped and no ref is left behind.
+        reqId: Date.now(),
         transactions: [{
             doOperations: [{
                 action: "insert",
@@ -64,6 +68,11 @@ const doPromote = async (protyle: IProtyle, liElement: HTMLElement, notebook: st
             }],
         }],
     });
+    if (txResponse.code !== 0) {
+        // Never move the subtree if the ref bullet failed to persist.
+        showMessage(`留引用失败,已取消升格:${txResponse.msg || ""}`, 6000, "error");
+        return;
+    }
     fetchPost("/api/filetree/li2Doc", {
         srcListItemID: liID,
         targetNoteBook: notebook,
