@@ -62,6 +62,9 @@ export const toggleTaskListItem = (protyle: IProtyle, taskItemElement: Element):
     const html = taskItemElement.outerHTML;
     const marker = taskItemElement.getAttribute("data-task");
     const useElement = taskItemElement.querySelector("use");
+    // Fork: the binary toggle exits any DOING state — otherwise a direct
+    // checkbox click on a DOING item would leave a stale orange marker.
+    taskItemElement.removeAttribute("custom-task");
     if (marker !== null && marker !== " ") {
         taskItemElement.setAttribute("data-task", " ");
         taskItemElement.classList.remove("protyle-task--done");

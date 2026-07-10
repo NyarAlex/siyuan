@@ -129,7 +129,7 @@
 
 // Fork: DOING task state (custom-task="doing" on the list item) — orange
 // checkbox so in-progress tasks stand out from plain TODOs.
-.protyle-wysiwyg .li[custom-task="doing"] > .protyle-action--task svg {
+.protyle-wysiwyg .li[custom-task="doing"]:not(.protyle-task--done) > .protyle-action--task svg {
   color: var(--b3-card-warning-color, #d98d1e);
 }
 
@@ -164,4 +164,32 @@
 
 .fork-taskhub__section--doing .fork-taskhub__head {
   color: var(--b3-card-warning-color, #d98d1e);
+}
+
+// Fork: task dock rows.
+.fork-tasks__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  color: var(--b3-theme-on-surface-light);
+
+  &--doing {
+    color: var(--b3-card-warning-color, #d98d1e);
+  }
+
+  &--done {
+    color: var(--b3-theme-primary);
+  }
+}
+
+.fork-tasks__item--done .b3-list-item__text {
+  text-decoration: line-through;
+  opacity: .6;
+}
+
+.fork-tasks__path {
+  font-size: 10px;
+  color: var(--b3-theme-on-surface-light);
+  padding: 0 8px 4px 32px;
 }

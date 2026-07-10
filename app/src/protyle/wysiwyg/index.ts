@@ -61,6 +61,7 @@ import {openAttr} from "../../menus/commonMenuItem";
 import {blockRender} from "../render/blockRender";
 /// #if !MOBILE
 import {getAllModels} from "../../layout/getAll";
+import {getDockByType} from "../../layout/tabUtil";
 import {pushBack} from "../../util/backForward";
 import {openFileById} from "../../editor/util";
 import {openGlobalSearch} from "../../search/util";
@@ -78,7 +79,6 @@ import {getBacklinkHeadingMore, loadBreadcrumb} from "./renderBacklink";
 import {removeSearchMark} from "../toolbar/util";
 import {activeBlur} from "../../mobile/util/keyboardToolbar";
 import {commonClick} from "./commonClick";
-import {openTaskHub} from "../taskHub";
 import {avClick, avContextmenu, updateAVName} from "../render/av/action";
 import {selectRow, stickyRow} from "../render/av/row";
 import {showColMenu} from "../render/av/col";
@@ -3413,8 +3413,10 @@ export class WYSIWYG {
                         if (actionElement.classList.contains("protyle-action--task")) {
                             if (event.altKey) {
                                 // Fork: Alt+click on any task checkbox opens the
-                                // workspace-wide task hub (DOING/TODO/DONE filter).
-                                openTaskHub(protyle.app);
+                                // workspace-wide task dock (DOING/TODO/DONE tree).
+                                /// #if !MOBILE
+                                getDockByType("forkTasks")?.toggleModel("forkTasks", true);
+                                /// #endif
                             } else if (!protyle.disabled) {
                                 toggleTaskListItem(protyle, actionElement.parentElement);
                             }

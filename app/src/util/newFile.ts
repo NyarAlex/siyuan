@@ -316,7 +316,7 @@ export const newFileByRefHint = (
     // parent path (the kernel's createDocsByHPath creates missing parents),
     // the last segment is the doc title. Sanitizing per segment keeps stock
     // replaceFileName from folding "/" into "／".
-    const segments = name.trim().split("/").map(seg => replaceFileName(seg.trim())).filter(Boolean);
+    const segments = name.trim().split(/[/／]/).map(seg => replaceFileName(seg.trim())).filter(Boolean);
     const requestName = segments.length > 0 ? segments[segments.length - 1] : replaceFileName(name.trim());
     const parentSegments = segments.slice(0, -1);
     fetchPost("/api/filetree/getRefCreateSavePath", {notebook: protyle.notebookId}, (savePathResponse) => {

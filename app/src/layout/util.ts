@@ -278,6 +278,57 @@ const ensureAgentChatDock = (layout: Pick<Config.IUiLayout, "left" | "right" | "
     }
 };
 
+// Fork: 任务停靠按钮 — 已存在则去重，缺失则按默认布局补全（同 agentChat 逻辑）。
+const ensureForkTasksDock = (layout: Pick<Config.IUiLayout, "left" | "right" | "bottom">) => {
+    let hasForkTasks = false;
+    for (const key of DOCK_KEYS) {
+        const sections = layout[key]?.data;
+        if (!sections) {
+            continue;
+        }
+        for (const sub of sections) {
+            if (!sub) {
+                continue;
+            }
+            for (let i = 0; i < sub.length; i++) {
+                if (sub[i]?.type !== "forkTasks") {
+                    continue;
+                }
+                if (hasForkTasks) {
+                    sub.splice(i, 1);
+                    i--;
+                } else {
+                    hasForkTasks = true;
+                }
+            }
+        }
+    }
+    if (!hasForkTasks) {
+        for (const key of DOCK_KEYS) {
+            const sections = Constants.SIYUAN_EMPTY_LAYOUT[key]?.data;
+            if (!sections) {
+                continue;
+            }
+            for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+                const sub = sections[sectionIndex];
+                if (!sub) {
+                    continue;
+                }
+                for (let itemIndex = 0; itemIndex < sub.length; itemIndex++) {
+                    const item = sub[itemIndex];
+                    if (item?.type === "forkTasks") {
+                        const targetSections = layout[key]?.data;
+                        if (targetSections?.[sectionIndex]) {
+                            targetSections[sectionIndex].splice(itemIndex, 0, {...item});
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+    }
+};
+
 const initInternalDock = (dockItem: Config.IUILayoutDockTab[]) => {
     dockItem.forEach((existSubItem, index) => {
         if (window.siyuan.isPublish && (existSubItem.type === "inbox" || existSubItem.type === "agentChat")) {
@@ -294,6 +345,7 @@ const initInternalDock = (dockItem: Config.IUILayoutDockTab[]) => {
 
 const JSONToDock = (json: any, app: App) => {
     ensureAgentChatDock(json);
+    ensureForkTasksDock(json);
     json.left.data.forEach((existItem: Config.IUILayoutDockTab[]) => {
         initInternalDock(existItem);
     });

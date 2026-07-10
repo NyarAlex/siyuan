@@ -739,6 +739,13 @@ export abstract class Constants {
                     icon: "iconSparkles",
                     hotkeyLangId: "agentChat",
                 }, {
+                    // Fork: workspace task dock (DOING/TODO/DONE tree).
+                    type: "forkTasks",
+                    size: {width: 320, height: 0},
+                    show: false,
+                    icon: "iconCheck",
+                    title: "任务",
+                }, {
                     type: "graph",
                     size: {width: 320, height: 0},
                     show: false,
