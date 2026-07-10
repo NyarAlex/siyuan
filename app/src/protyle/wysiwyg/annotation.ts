@@ -1,4 +1,5 @@
 import {fetchPost} from "../../util/fetch";
+import {openGlobalSearch} from "../../search/util";
 import {openAnnotationHub, renderMemoHTML} from "../annotationHub";
 
 // Fork: Tine-style right-margin annotation column.
@@ -92,7 +93,21 @@ export class AnnotationColumn {
         if (tagElement) {
             event.preventDefault();
             event.stopPropagation();
-            openAnnotationHub(this.protyle.app, tagElement.textContent);
+            // Alt+click keeps the @tag directory (counts overview); a plain
+            // click reuses the native tag-click experience — the global search
+            // panel with its result list, preview pane, and saved queries.
+            if (event.altKey) {
+                openAnnotationHub(this.protyle.app, tagElement.textContent);
+                return;
+            }
+            if (!window.siyuan.config.search.memo) {
+                // The query lives in block memos — make sure that field is in
+                // the search scope (persisted, same as toggling it in the
+                // search panel's settings).
+                window.siyuan.config.search.memo = true;
+                fetchPost("/api/setting/setSearch", window.siyuan.config.search);
+            }
+            openGlobalSearch(this.protyle.app, tagElement.textContent, true, {method: 0} as Config.IUILayoutTabSearchConfig);
             return;
         }
         const cell = target.closest(".fork-annotations__cell") as HTMLElement;
