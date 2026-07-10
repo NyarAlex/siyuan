@@ -1,20 +1,23 @@
+import * as dayjs from "dayjs";
 import {Dialog} from "../dialog";
 import {fetchPost, fetchSyncPost} from "../util/fetch";
 import {movePathTo} from "../util/pathName";
 import {showMessage} from "../dialog/message";
-import {Constants} from "../constants";
+import {replaceFileName} from "../editor/rename";
+import {updateTransaction} from "./wysiwyg/transaction";
 import {getContenteditableElement} from "./wysiwyg/getBlock";
 import {escapeAnnotation} from "./annotationHub";
 
-// Fork: "promote to sub-doc" — turns a bullet's subtree into a child document
-// of a target doc, leaving a block-ref bullet at the original spot. The kernel
-// li2Doc keeps the block ID for the new doc, so the ref (and any pre-existing
-// refs to the bullet) point at the new document automatically.
+// Fork: "promote to sub-doc" — creates an EMPTY child document titled after
+// the bullet's own line and turns that line into a block-ref to it, in place.
+// Nothing moves: the bullet's children stay where they were written (the
+// journal keeps the day's process), and the new thread page starts empty,
+// aggregating everything through backlinks from day one.
 //
-// The default target is inferred from the outline: the first doc reference
-// found on an ancestor bullet's own first line — the journal pattern, where
-// progress notes sit under a [[project]] bullet. With no ancestor ref, the
-// picker opens directly.
+// The default target parent is inferred from the outline: the first doc
+// reference found on an ancestor bullet's own line — the journal pattern,
+// where progress sits under a [[project]] bullet. With no resolvable ancestor
+// ref the location picker opens directly.
 
 /** Ancestor bullets' own-line block-ref target ids, nearest first. */
 const collectAncestorRefIDs = (liElement: HTMLElement): string[] => {
@@ -31,55 +34,27 @@ const collectAncestorRefIDs = (liElement: HTMLElement): string[] => {
     return ids;
 };
 
-/** Leave a ref bullet after the source li, then move the subtree kernel-side.
- *  The insert must be AWAITED before li2Doc fires: the editor's transaction()
- *  helper debounces, so a queued insert could reach the kernel after li2Doc
- *  has already unlinked its anchor block (未找到 ID 错误). Post the transaction
- *  synchronously instead. */
-const doPromote = async (protyle: IProtyle, liElement: HTMLElement, notebook: string, targetPath: string) => {
-    const liID = liElement.getAttribute("data-node-id");
-    const text = getContenteditableElement(liElement)?.textContent.trim() || "未命名";
-    const refLiID = Lute.NewNodeID();
-    const refPID = Lute.NewNodeID();
-    const subtype = liElement.getAttribute("data-subtype") === "o" ? "o" : "u";
-    const marker = subtype === "o" ? liElement.getAttribute("data-marker") : "*";
-    const actionHTML = subtype === "o"
-        ? `<div contenteditable="false" class="protyle-action protyle-action--order" draggable="true">${marker}</div>`
-        : '<div class="protyle-action" draggable="true"><svg><use xlink:href="#iconDot"></use></svg></div>';
-    const html = `<div data-marker="${marker}" data-subtype="${subtype}" data-node-id="${refLiID}" data-type="NodeListItem" class="li">${actionHTML}<div data-node-id="${refPID}" data-type="NodeParagraph" class="p"><div contenteditable="true" spellcheck="false"><span data-type="block-ref" data-id="${liID}" data-subtype="d">${escapeAnnotation(text)}</span></div><div class="protyle-attr" contenteditable="false"></div></div><div class="protyle-attr" contenteditable="false"></div></div>`;
-    liElement.insertAdjacentHTML("afterend", html);
-    const txResponse = await fetchSyncPost("/api/transactions", {
-        session: protyle.id,
-        app: Constants.SIYUAN_APPID,
-        // Required by the kernel's arg binding — fetchPost injects this for
-        // /api/transactions automatically, fetchSyncPost does not; without it
-        // the insert is silently dropped and no ref is left behind.
-        reqId: Date.now(),
-        transactions: [{
-            doOperations: [{
-                action: "insert",
-                data: html,
-                id: refLiID,
-                previousID: liID,
-            }],
-            undoOperations: [{
-                action: "delete",
-                id: refLiID,
-            }],
-        }],
-    });
-    if (txResponse.code !== 0) {
-        // Never move the subtree if the ref bullet failed to persist.
-        showMessage(`留引用失败,已取消升格:${txResponse.msg || ""}`, 6000, "error");
+/** Create the empty child doc under parentHPath, then swap the bullet's own
+ *  line for a dynamic ref to it. Children are untouched. */
+const doPromote = (protyle: IProtyle, liElement: HTMLElement, notebook: string, parentHPath: string) => {
+    const pElement = liElement.querySelector(':scope > [data-type="NodeParagraph"]') as HTMLElement;
+    const editable = pElement ? getContenteditableElement(pElement) : null;
+    if (!editable) {
+        showMessage("该行没有可转换的文本", 4000, "error");
         return;
     }
-    fetchPost("/api/filetree/li2Doc", {
-        srcListItemID: liID,
-        targetNoteBook: notebook,
-        targetPath,
-        pushMode: 0,
-    }, () => {
-        showMessage(`已升格为子文档:${text}`, 4000);
+    const title = replaceFileName(editable.textContent.trim()) || "未命名";
+    fetchPost("/api/filetree/createDocWithMd", {
+        notebook,
+        path: `${parentHPath === "/" ? "" : parentHPath}/${title}`,
+        markdown: "",
+    }, (response) => {
+        const newDocID = response.data as string;
+        const oldHTML = pElement.outerHTML;
+        editable.innerHTML = `<span data-type="block-ref" data-id="${newDocID}" data-subtype="d">${escapeAnnotation(title)}</span>`;
+        pElement.setAttribute("updated", dayjs().format("YYYYMMDDHHmmss"));
+        updateTransaction(protyle, pElement, oldHTML);
+        showMessage(`已创建空子文档并转为引用:${title}`, 4000);
     });
 };
 
@@ -88,29 +63,34 @@ const openPicker = (protyle: IProtyle, liElement: HTMLElement) => {
         title: "升格为子文档 · 选择上级文档",
         flashcard: false,
         cb: (toPath, toNotebook) => {
-            doPromote(protyle, liElement, toNotebook[0], toPath[0]);
+            fetchPost("/api/filetree/getHPathByPath", {
+                notebook: toNotebook[0],
+                path: toPath[0],
+            }, (response) => {
+                doPromote(protyle, liElement, toNotebook[0], (response.data as string) || "/");
+            });
         },
     });
 };
 
 export const promoteListItem = async (protyle: IProtyle, liElement: HTMLElement) => {
     const refIDs = collectAncestorRefIDs(liElement);
-    let target: { box: string, path: string, title: string } = null;
+    let target: { box: string, hpath: string, title: string } = null;
     if (refIDs.length > 0) {
         // Resolve via SQL rather than getBlockInfo: a dangling ref (target doc
         // deleted) must silently fall through to the next ancestor / the
         // picker instead of toasting a kernel not-found error.
         const response = await fetchSyncPost("/api/query/sql", {
-            stmt: `SELECT b1.id AS refid, b2.box, b2.path, b2.content FROM blocks b1 JOIN blocks b2 ON b1.root_id = b2.id WHERE b1.id IN (${refIDs.map(id => `'${id}'`).join(",")})`,
+            stmt: `SELECT b1.id AS refid, b2.box, b2.hpath, b2.content FROM blocks b1 JOIN blocks b2 ON b1.root_id = b2.id WHERE b1.id IN (${refIDs.map(id => `'${id}'`).join(",")})`,
         });
-        const byID = new Map<string, { box: string, path: string, content: string }>();
-        ((response.data || []) as { refid: string, box: string, path: string, content: string }[]).forEach(row => {
+        const byID = new Map<string, { box: string, hpath: string, content: string }>();
+        ((response.data || []) as { refid: string, box: string, hpath: string, content: string }[]).forEach(row => {
             byID.set(row.refid, row);
         });
         for (const refID of refIDs) {
             const row = byID.get(refID);
             if (row) {
-                target = {box: row.box, path: row.path, title: row.content};
+                target = {box: row.box, hpath: row.hpath, title: row.content};
                 break;
             }
         }
@@ -124,8 +104,8 @@ export const promoteListItem = async (protyle: IProtyle, liElement: HTMLElement)
         title: "升格为子文档",
         width: "460px",
         content: `<div class="b3-dialog__content">
-    将「${escapeAnnotation(text.substring(0, 40))}」及其子树移动为
-    <b>「${escapeAnnotation(target.title || "")}」</b> 的子文档,并在原位置留下引用。
+    在 <b>「${escapeAnnotation(target.title || "")}」</b> 下创建空子文档「${escapeAnnotation(text.substring(0, 40))}」,
+    并将本行原地变为它的引用。<br><span class="ft__on-surface ft__smaller">子级内容保留在当前位置,不会移动。</span>
 </div>
 <div class="b3-dialog__action">
     <button class="b3-button b3-button--cancel">${window.siyuan.languages.cancel}</button><div class="fn__space"></div>
@@ -143,6 +123,6 @@ export const promoteListItem = async (protyle: IProtyle, liElement: HTMLElement)
     });
     buttons[2].addEventListener("click", () => {
         dialog.destroy();
-        doPromote(protyle, liElement, target.box, target.path);
+        doPromote(protyle, liElement, target.box, target.hpath);
     });
 };
