@@ -64,6 +64,9 @@ export abstract class Constants {
     public static readonly CUSTOM_SY_FULLWIDTH: string = "custom-sy-fullwidth";
     public static readonly CUSTOM_SY_AV_VIEW: string = "custom-sy-av-view";
     public static readonly CUSTOM_SY_TITLE_EMPTY: string = "custom-sy-title-empty";
+    // Fork: doc root attribute marking a pure-outliner document (stamped by the
+    // kernel on every created doc; web clips get "false").
+    public static readonly CUSTOM_OUTLINER: string = "custom-outliner";
 
     // 临时标记 DOM 属性以辅助完成其功能
     public static readonly ATTRIBUTE_EDITING = "data-editing";

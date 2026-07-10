@@ -1120,6 +1120,10 @@ func CreateWithMarkdown(tags, boxID, hPath, md, parentID, id string, withMath bo
 	}
 	tags = strings.Join(tmp, ",")
 	nameValues["tags"] = tags
+	if "" != clippingHref {
+		// 剪藏的页面保留常规文档编辑模式，不走 outliner 默认值。
+		nameValues[DocOutlinerAttr] = "false"
+	}
 	SetBlockAttrs(retID, nameValues)
 
 	FlushTxQueue()
@@ -1140,7 +1144,28 @@ const (
 	DailyNoteAttrPrefix = "custom-dailynote-"
 	NodeAttrTitleEmpty  = "custom-sy-title-empty"
 	DocHiddenAttr       = "custom-hidden"
+	// DocOutlinerAttr marks a document as a pure outliner (fork feature): the
+	// editor keeps all content in one list tree, Logseq-style. Stamped "true"
+	// on every created doc; web clips override it to "false" so clipped pages
+	// keep the normal document editing mode.
+	DocOutlinerAttr = "custom-outliner"
 )
+
+// newOutlinerBody returns the initial body for an empty outliner doc: an
+// unordered list holding one empty list item, so the first keystroke lands in
+// a bullet instead of a bare paragraph.
+func newOutlinerBody() *ast.Node {
+	listID, liID := ast.NewNodeID(), ast.NewNodeID()
+	list := &ast.Node{ID: listID, Type: ast.NodeList, ListData: &ast.ListData{Typ: 0}}
+	list.SetIALAttr("id", listID)
+	list.SetIALAttr("updated", listID[:14])
+	li := &ast.Node{ID: liID, Type: ast.NodeListItem, ListData: &ast.ListData{Typ: 0, BulletChar: '*', Marker: []byte("*")}}
+	li.SetIALAttr("id", liID)
+	li.SetIALAttr("updated", liID[:14])
+	li.AppendChild(treenode.NewParagraph(""))
+	list.AppendChild(li)
+	return list
+}
 
 func CreateDailyNote(boxID string) (p string, existed bool, err error) {
 	createDocLock.Lock()
@@ -1866,8 +1891,9 @@ func createDoc(boxID, p, title, dom string, titleEmpty bool) (tree *parse.Tree, 
 	if isEmpty {
 		tree.Root.SetIALAttr(NodeAttrTitleEmpty, "true")
 	}
+	tree.Root.SetIALAttr(DocOutlinerAttr, "true")
 	if nil == tree.Root.FirstChild {
-		tree.Root.AppendChild(treenode.NewParagraph(""))
+		tree.Root.AppendChild(newOutlinerBody())
 	}
 
 	// 如果段落块中仅包含一个 mp3/mp4 超链接，则将其转换为音视频块

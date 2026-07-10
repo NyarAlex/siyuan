@@ -495,6 +495,13 @@ export const listOutdent = async (protyle: IProtyle, liItemElements: Element[], 
     }
     if (parentLiItemElement.classList.contains("protyle-wysiwyg") || parentLiItemElement.classList.contains("sb") ||
         parentLiItemElement.classList.contains("bq") || parentLiItemElement.classList.contains("callout")) {
+        // Fork outliner: in a pure-outliner doc, list content never escapes to the
+        // document level — Enter on an empty top-level bullet and Shift-Tab on a
+        // top-level item are no-ops. Backspace merges (isDelete) keep stock
+        // behavior so deleting items still works.
+        if (!isDelete && protyle.wysiwyg.element.getAttribute(Constants.CUSTOM_OUTLINER) === "true") {
+            return;
+        }
         // 顶层列表
         const topDoOperations: IOperation[] = [];
         const topUndoOperations: IOperation[] = [];
