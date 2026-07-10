@@ -16,17 +16,19 @@ import {escapeAnnotation} from "./annotationHub";
 // progress notes sit under a [[project]] bullet. With no ancestor ref, the
 // picker opens directly.
 
-/** Nearest ancestor bullet's own-line block-ref target id, or null. */
-const inferTargetRef = (liElement: HTMLElement): string | null => {
+/** Ancestor bullets' own-line block-ref target ids, nearest first. */
+const collectAncestorRefIDs = (liElement: HTMLElement): string[] => {
+    const ids: string[] = [];
     let ancestor = liElement.parentElement?.closest(".li") as HTMLElement;
     while (ancestor) {
         const refSpan = ancestor.querySelector(':scope > [data-type="NodeParagraph"] span[data-type~="block-ref"]');
-        if (refSpan?.getAttribute("data-id")) {
-            return refSpan.getAttribute("data-id");
+        const id = refSpan?.getAttribute("data-id");
+        if (id && !ids.includes(id)) {
+            ids.push(id);
         }
         ancestor = ancestor.parentElement?.closest(".li") as HTMLElement;
     }
-    return null;
+    return ids;
 };
 
 /** Leave a ref bullet after the source li, then move the subtree kernel-side.
@@ -82,42 +84,56 @@ const openPicker = (protyle: IProtyle, liElement: HTMLElement) => {
     });
 };
 
-export const promoteListItem = (protyle: IProtyle, liElement: HTMLElement) => {
-    const refID = inferTargetRef(liElement);
-    if (!refID) {
+export const promoteListItem = async (protyle: IProtyle, liElement: HTMLElement) => {
+    const refIDs = collectAncestorRefIDs(liElement);
+    let target: { box: string, path: string, title: string } = null;
+    if (refIDs.length > 0) {
+        // Resolve via SQL rather than getBlockInfo: a dangling ref (target doc
+        // deleted) must silently fall through to the next ancestor / the
+        // picker instead of toasting a kernel not-found error.
+        const response = await fetchSyncPost("/api/query/sql", {
+            stmt: `SELECT b1.id AS refid, b2.box, b2.path, b2.content FROM blocks b1 JOIN blocks b2 ON b1.root_id = b2.id WHERE b1.id IN (${refIDs.map(id => `'${id}'`).join(",")})`,
+        });
+        const byID = new Map<string, { box: string, path: string, content: string }>();
+        ((response.data || []) as { refid: string, box: string, path: string, content: string }[]).forEach(row => {
+            byID.set(row.refid, row);
+        });
+        for (const refID of refIDs) {
+            const row = byID.get(refID);
+            if (row) {
+                target = {box: row.box, path: row.path, title: row.content};
+                break;
+            }
+        }
+    }
+    if (!target) {
         openPicker(protyle, liElement);
         return;
     }
-    fetchPost("/api/block/getBlockInfo", {id: refID}, (response) => {
-        if (!response.data?.path) {
-            openPicker(protyle, liElement);
-            return;
-        }
-        const text = getContenteditableElement(liElement)?.textContent.trim() || "";
-        const dialog = new Dialog({
-            title: "升格为子文档",
-            width: "460px",
-            content: `<div class="b3-dialog__content">
+    const text = getContenteditableElement(liElement)?.textContent.trim() || "";
+    const dialog = new Dialog({
+        title: "升格为子文档",
+        width: "460px",
+        content: `<div class="b3-dialog__content">
     将「${escapeAnnotation(text.substring(0, 40))}」及其子树移动为
-    <b>「${escapeAnnotation(response.data.rootTitle || "")}」</b> 的子文档,并在原位置留下引用。
+    <b>「${escapeAnnotation(target.title || "")}」</b> 的子文档,并在原位置留下引用。
 </div>
 <div class="b3-dialog__action">
     <button class="b3-button b3-button--cancel">${window.siyuan.languages.cancel}</button><div class="fn__space"></div>
     <button class="b3-button b3-button--outline" data-type="pick">选择其他位置</button><div class="fn__space"></div>
     <button class="b3-button b3-button--text">${window.siyuan.languages.confirm}</button>
 </div>`,
-        });
-        const buttons = dialog.element.querySelectorAll(".b3-button");
-        buttons[0].addEventListener("click", () => {
-            dialog.destroy();
-        });
-        buttons[1].addEventListener("click", () => {
-            dialog.destroy();
-            openPicker(protyle, liElement);
-        });
-        buttons[2].addEventListener("click", () => {
-            dialog.destroy();
-            doPromote(protyle, liElement, response.data.box, response.data.path);
-        });
+    });
+    const buttons = dialog.element.querySelectorAll(".b3-button");
+    buttons[0].addEventListener("click", () => {
+        dialog.destroy();
+    });
+    buttons[1].addEventListener("click", () => {
+        dialog.destroy();
+        openPicker(protyle, liElement);
+    });
+    buttons[2].addEventListener("click", () => {
+        dialog.destroy();
+        doPromote(protyle, liElement, target.box, target.path);
     });
 };
