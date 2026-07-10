@@ -379,13 +379,20 @@ export const getPadding = (protyle: IProtyle) => {
             left = 96;
             right = 96;
         }
-        // Fork: annotation column — when the right margin can't host the gutter,
-        // rebalance the two margins (content keeps its width and shifts left,
-        // Tine-style). Narrow editors keep stock margins and the column hides
-        // (see the protyle-wysiwyg--annocol toggle in setPadding).
-        if (right < Constants.SIZE_ANNOTATION_COL && left + right >= Constants.SIZE_ANNOTATION_COL + 24) {
-            left = left + right - Constants.SIZE_ANNOTATION_COL;
-            right = Constants.SIZE_ANNOTATION_COL;
+        // Fork: annotation column — guarantee the right gutter in both centered
+        // and full-width modes. First steal from the left margin (content keeps
+        // its width and shifts left, Tine-style); if still short, narrow the
+        // content instead, as long as ~480px of editing width remains. Editors
+        // too narrow for that keep stock margins and the column hides (see the
+        // protyle-wysiwyg--annocol toggle in setPadding).
+        if (right < Constants.SIZE_ANNOTATION_COL) {
+            const take = Math.min(Math.max(0, left - 24), Constants.SIZE_ANNOTATION_COL - right);
+            left -= take;
+            right += take;
+            if (right < Constants.SIZE_ANNOTATION_COL &&
+                protyle.element.clientWidth - left - Constants.SIZE_ANNOTATION_COL >= 480) {
+                right = Constants.SIZE_ANNOTATION_COL;
+            }
         }
     }
     return {
