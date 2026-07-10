@@ -1722,18 +1722,26 @@ export const keydown = (protyle: IProtyle, editorElement: HTMLElement) => {
             event.stopPropagation();
             return;
         }
+        // Fork: for a non-paragraph block (code block, table, …) inside a list
+        // item, insert relative to that exact block so the new paragraph lands
+        // INSIDE the same li. Stock omits the id and getTopAloneElement escalates
+        // a lone code-block-in-li to the list level, making it impossible to add
+        // content above/below the code block within the row.
+        const insertAnchorID = (nodeElement.parentElement.classList.contains("li") &&
+            nodeElement.getAttribute("data-type") !== "NodeParagraph")
+            ? nodeElement.getAttribute("data-node-id") : undefined;
         if (matchHotKey(window.siyuan.config.keymap.editor.general.insertBefore.custom, event) &&
             !isInEmbedBlock(nodeElement)) {
             // https://github.com/siyuan-note/siyuan/issues/14290#issuecomment-2846594701
             nodeElement.querySelector(".img--select")?.classList.remove("img--select");
-            insertEmptyBlock(protyle, "beforebegin");
+            insertEmptyBlock(protyle, "beforebegin", insertAnchorID);
             event.preventDefault();
             return true;
         }
         if (matchHotKey(window.siyuan.config.keymap.editor.general.insertAfter.custom, event) &&
             !isInEmbedBlock(nodeElement)) {
             nodeElement.querySelector(".img--select")?.classList.remove("img--select");
-            insertEmptyBlock(protyle, "afterend");
+            insertEmptyBlock(protyle, "afterend", insertAnchorID);
             event.preventDefault();
             event.stopPropagation();
             return true;
