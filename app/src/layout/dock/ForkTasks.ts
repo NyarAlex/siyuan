@@ -20,6 +20,7 @@ interface ITaskNode {
     id: string;
     content: string;
     hpath: string;
+    created: string;
     state: TTaskState;
     children: ITaskNode[];
 }
@@ -74,6 +75,22 @@ export class ForkTasks extends Model {
             }
         });
         this.update();
+        // Fork: no kernel push exists for task changes — refresh whenever the
+        // panel becomes visible, plus a low-frequency poll while it stays
+        // visible so checkbox flips show up without manual refreshes.
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    this.update();
+                }
+            });
+        });
+        observer.observe(this.listElement);
+        window.setInterval(() => {
+            if (this.listElement.isConnected && this.listElement.getClientRects().length > 0 && document.hasFocus()) {
+                this.update();
+            }
+        }, 15000);
     }
 
     public update() {
@@ -82,16 +99,17 @@ export class ForkTasks extends Model {
         }, (attrResponse) => {
             const doingIds = new Set<string>((attrResponse.data || []).map((row: { block_id: string }) => row.block_id));
             fetchPost("/api/query/sql", {
-                stmt: "SELECT id, parent_id, content, hpath, markdown FROM blocks WHERE type = 'i' AND subtype = 't' ORDER BY updated DESC LIMIT 4096",
+                stmt: "SELECT id, parent_id, fcontent, hpath, markdown, created FROM blocks WHERE type = 'i' AND subtype = 't' ORDER BY updated DESC LIMIT 4096",
             }, (blockResponse) => {
-                const rows = (blockResponse.data || []) as { id: string, parent_id: string, content: string, hpath: string, markdown: string }[];
+                const rows = (blockResponse.data || []) as { id: string, parent_id: string, fcontent: string, hpath: string, markdown: string, created: string }[];
                 const nodes = new Map<string, ITaskNode>();
                 rows.forEach(row => {
                     const checked = /^\s*[*+-] \[[xX]\]/.test(row.markdown || "");
                     nodes.set(row.id, {
                         id: row.id,
-                        content: row.content,
+                        content: row.fcontent,
                         hpath: row.hpath,
+                        created: row.created,
                         state: checked ? "done" : (doingIds.has(row.id) ? "doing" : "todo"),
                         children: [],
                     });
@@ -109,6 +127,9 @@ export class ForkTasks extends Model {
                         } else {
                             roots.push(node);
                         }
+                    });
+                    nodes.forEach(node => {
+                        node.children.sort((a, b) => a.created.localeCompare(b.created));
                     });
                     this.render(roots);
                 };
