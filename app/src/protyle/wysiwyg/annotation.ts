@@ -36,18 +36,21 @@ export const annotationClick = (event: MouseEvent & { target: HTMLElement }, pro
 };
 
 export const openAnnotationEditor = (protyle: IProtyle, blockElement: HTMLElement) => {
-    protyle.contentElement.querySelector(".fork-annotation__input")?.remove();
+    document.querySelector(".fork-annotation__input")?.remove();
     const id = blockElement.getAttribute("data-node-id");
-    const contentRect = protyle.contentElement.getBoundingClientRect();
     const blockRect = blockElement.getBoundingClientRect();
     const textarea = document.createElement("textarea");
     textarea.className = "fork-annotation__input b3-text-field";
     textarea.setAttribute("placeholder", "#标注");
     textarea.value = blockElement.getAttribute("memo") || "";
+    // Fixed positioning in viewport coordinates, appended to <body>: immune to
+    // which ancestor scrolls or is position:relative (absolute positioning
+    // inside the scroll container drifted once the doc had been scrolled).
+    // Clamped so the editor stays on screen for blocks near the edges.
     textarea.setAttribute("style",
-        "position:absolute;z-index:4;box-sizing:border-box;" +
-        `top:${Math.round(blockRect.top - contentRect.top + protyle.contentElement.scrollTop)}px;` +
-        `left:${Math.round(blockRect.right - contentRect.left + 8)}px;` +
+        "position:fixed;z-index:220;box-sizing:border-box;" +
+        `top:${Math.round(Math.min(Math.max(blockRect.top, 8), window.innerHeight - 140))}px;` +
+        `left:${Math.round(Math.min(blockRect.right + 8, window.innerWidth - 224))}px;` +
         "width:212px;min-height:58px;resize:vertical;font-size:12px;line-height:18px;");
     let closed = false;
     const commit = () => {
@@ -55,12 +58,16 @@ export const openAnnotationEditor = (protyle: IProtyle, blockElement: HTMLElemen
             return;
         }
         closed = true;
+        protyle.contentElement.removeEventListener("scroll", commit);
         const value = textarea.value.trim();
         if (value !== (blockElement.getAttribute("memo") || "")) {
             fetchPost("/api/attr/setBlockAttrs", {id, attrs: {memo: value}});
         }
         textarea.remove();
     };
+    // A fixed-position editor must not float away from its block — commit as
+    // soon as the doc scrolls.
+    protyle.contentElement.addEventListener("scroll", commit, {passive: true});
     textarea.addEventListener("blur", commit);
     textarea.addEventListener("keydown", (keyEvent: KeyboardEvent) => {
         keyEvent.stopPropagation();
@@ -70,10 +77,11 @@ export const openAnnotationEditor = (protyle: IProtyle, blockElement: HTMLElemen
         } else if (keyEvent.key === "Escape") {
             keyEvent.preventDefault();
             closed = true;
+            protyle.contentElement.removeEventListener("scroll", commit);
             textarea.remove();
         }
     });
-    protyle.contentElement.append(textarea);
+    document.body.append(textarea);
     textarea.focus();
     textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 };
